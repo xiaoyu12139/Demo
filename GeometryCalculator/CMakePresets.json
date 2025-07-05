@@ -1,0 +1,96 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 19, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "Ninja Debug",
+      "displayName": "Ninja Debug Configure",
+      "description": "Configure project in Debug mode using Ninja",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/Debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "Ninja Debug Src",
+      "inherits": "Ninja Debug",
+      "displayName": "Ninja Debug Configure Src",
+      "cacheVariables": {
+        "TESTING": "OFF",
+        "BUILD_EXAMPLES": "OFF"
+      }
+    },
+    {
+      "name": "Ninja Debug Example",
+      "inherits": "Ninja Debug",
+      "displayName": "Ninja Debug Configure Example",
+      "cacheVariables": {
+        "TESTING": "OFF",
+        "BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "Ninja Debug Test",
+      "inherits": "Ninja Debug",
+      "displayName": "Ninja Debug Configure Test",
+      "cacheVariables": {
+        "BUILD_EXAMPLES": "OFF",
+        "TESTING": "ON"
+      }
+    },
+    {
+      "name": "Ninja Release",
+      "displayName": "Ninja Release Configure",
+      "description": "Configure project in Release mode using Ninja",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/Release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "Ninja Debug",
+      "displayName": "Ninja Build Debug",
+      "configurePreset": "Ninja Debug",
+      "jobs": 4
+    },
+    {
+      "name": "Ninja Debug Src",
+      "displayName": "Ninja Build Debug Src",
+      "configurePreset": "Ninja Debug Src",
+      "jobs": 4
+    },
+    {
+      "name": "Ninja Debug Example",
+      "displayName": "Ninja Build Debug Example",
+      "configurePreset": "Ninja Debug Example",
+      "jobs": 4
+    },
+    {
+      "name": "Ninja Debug Test",
+      "displayName": "Ninja Build Debug Test",
+      "configurePreset": "Ninja Debug Test",
+      "jobs": 4
+    },
+    {
+      "name": "Ninja Release",
+      "displayName": "Ninja Build Release",
+      "configurePreset": "Ninja Release",
+      "jobs": 4
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "Ninja Test Debug",
+      "configurePreset": "Ninja Debug Test"
+    },
+    {
+      "name": "Ninja Test Release",
+      "configurePreset": "Ninja Release"
+    }
+  ]
+}

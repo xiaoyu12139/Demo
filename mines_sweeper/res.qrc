@@ -1,0 +1,17 @@
+<RCC>
+    <qresource prefix="/">
+        <file>resource/images/1.png</file>
+        <file>resource/images/2.png</file>
+        <file>resource/images/3.png</file>
+        <file>resource/images/4.png</file>
+        <file>resource/images/5.png</file>
+        <file>resource/images/6.png</file>
+        <file>resource/images/7.png</file>
+        <file>resource/images/8.png</file>
+        <file>resource/images/blank.png</file>
+        <file>resource/images/explode.png</file>
+        <file>resource/images/flag.png</file>
+        <file>resource/images/initial.png</file>
+        <file>resource/images/question.png</file>
+    </qresource>
+</RCC>

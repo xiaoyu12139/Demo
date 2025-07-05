@@ -1,0 +1,32 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+   
+            "name": "(gdb) Launch my",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/vs_server",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": true,
+            "environment": [
+                {
+                  "name": "TERM_PROGRAM",
+                  "value": "gxterm"  // 在这里指定你的终端程序，如 gnome-terminal、xterm 等
+                }
+              ],
+            "MIMode": "gdb",
+            "preLaunchTask": "build",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+  }
+  

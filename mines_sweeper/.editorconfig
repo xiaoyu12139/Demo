@@ -1,0 +1,11 @@
+# .editorconfig example
+root = true
+
+[*.cpp]
+charset = gbk
+
+[*.h]
+charset = gbk
+
+[*.ui]
+charset = gbk
