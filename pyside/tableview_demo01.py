@@ -123,7 +123,7 @@ class CheckBoxDelegate(QStyledItemDelegate):
             if (cell_rect.contains(click_pos) and 
                 self.mouse_press_index is not None and 
                 self.mouse_press_index == index):
-                # 切换复选框状态
+                # 切换复选框状态（每次点击都切换，包括双击的两次）
                 current_state = index.data(Qt.ItemDataRole.CheckStateRole)
                 new_state = Qt.CheckState.Unchecked if current_state == Qt.CheckState.Checked else Qt.CheckState.Checked
                 model.setData(index, new_state, Qt.ItemDataRole.CheckStateRole)

@@ -59,12 +59,6 @@ class CheckboxHeaderView(QHeaderView):
         # 显式禁用可能的默认复选框行为
         self.setSectionsClickable(True)  # 允许点击但不启用默认复选框
         
-        # 需要显示复选框的列索引集合
-        # 第0列：Gerber文件名称（不需要复选框）
-        # 第1列：未定义线宽（输入框，不需要复选框）
-        # 第2-5列：Mirror, Negative, Fill thermal, Delete unused pads（需要复选框）
-        # 第6列：旋转角度（下拉框，不需要复选框）
-        # 第7-8列：X/Y偏移（输入框，不需要复选框）
         self.checkbox_columns: Set[int] = {2, 3, 4, 5}
         
         # 存储每列复选框的选中状态
@@ -75,160 +69,12 @@ class CheckboxHeaderView(QHeaderView):
         
         # 创建复用的QCheckBox用于样式获取，避免每次绘制都创建新对象
         self._style_checkbox: QCheckBox = QCheckBox()
-        # 注意：不设置parent，避免在界面上显示这个隐藏的复选框
-        # self._style_checkbox.setParent(self)
+        self._style_checkbox.setParent(self)
         
         # 初始化所有复选框列的状态为未选中
         for col in self.checkbox_columns:
             self.checkbox_states[col] = False
     
-    def paintSection(self, painter: QPainter, rect: QRect, logicalIndex: int) -> None:
-        """绘制表头的指定区域。
-        
-        重写父类方法，为复选框列提供自定义绘制逻辑。复选框列会在左侧
-        绘制复选框，文本向右偏移；非复选框列则正常居中绘制文本。
-        
-        Args:
-            painter: 绘制器对象
-            rect: 要绘制的矩形区域
-            logicalIndex: 逻辑列索引
-        """
-        painter.save()
-        
-        # 获取列标题文本
-        text = self.model().headerData(logicalIndex, self.orientation(), Qt.ItemDataRole.DisplayRole)
-        
-        # 绘制表头背景
-        painter.fillRect(rect, self.palette().button())
-        
-        # 绘制边框
-        painter.setPen(self.palette().dark().color())
-        painter.drawRect(rect.adjusted(0, 0, -1, -1))
-        
-        # 根据列类型选择不同的绘制方式
-        if logicalIndex in self.checkbox_columns:
-            # 复选框列：绘制复选框和右偏移的文本
-            self.draw_checkbox(painter, rect, logicalIndex)
-            text_rect = rect.adjusted(35, 0, 0, 0)  # 为复选框留出35像素空间
-            painter.setPen(self.palette().buttonText().color())
-            painter.drawText(text_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, str(text))
-        else:
-            # 普通列：居中绘制文本
-            painter.setPen(self.palette().buttonText().color())
-            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, str(text))
-        
-        painter.restore()
-    
-    def draw_checkbox(self, painter: QPainter, rect: QRect, logicalIndex: int) -> None:
-        """在表头指定区域绘制复选框。
-        
-        使用Qt原生样式系统绘制复选框，确保与应用程序样式表保持一致。
-        复选框位置在矩形区域左侧，带有适当的边距。
-        
-        Args:
-            painter: 绘制器对象
-            rect: 表头区域矩形
-            logicalIndex: 逻辑列索引
-        """
-        # 复选框尺寸和位置参数
-        checkbox_size: int = 16
-        margin: int = 8
-        checkbox_x: int = rect.left() + margin
-        checkbox_y: int = rect.center().y() - checkbox_size // 2
-        
-        # 创建复选框矩形区域并保存用于点击检测
-        checkbox_rect = QRect(checkbox_x, checkbox_y, checkbox_size, checkbox_size)
-        self.checkbox_rects[logicalIndex] = checkbox_rect
-        
-        # 配置复用的QCheckBox以获取正确的样式
-        self._style_checkbox.setChecked(self.checkbox_states.get(logicalIndex, False))
-        self._style_checkbox.resize(checkbox_size, checkbox_size)
-        
-        # 创建样式选项并从QCheckBox获取配置
-        checkbox_option = QStyleOptionButton()
-        self._style_checkbox.initStyleOption(checkbox_option)
-        checkbox_option.rect = checkbox_rect
-        
-        # 设置复选框状态标志
-        checkbox_option.state = QStyle.StateFlag.State_Enabled
-        if self.checkbox_states.get(logicalIndex, False):
-            checkbox_option.state |= QStyle.StateFlag.State_On
-        else:
-            checkbox_option.state |= QStyle.StateFlag.State_Off
-            
-        # 使用Qt样式系统绘制复选框，传入QCheckBox以应用样式表
-        self.style().drawControl(
-            QStyle.ControlElement.CE_CheckBox, checkbox_option, painter, self._style_checkbox
-        )
-    
-    def mousePressEvent(self, event: QMouseEvent) -> None:
-        """处理鼠标按下事件。
-        
-        检测是否点击了复选框区域，如果是则切换复选框状态。
-        对于非复选框区域的点击，传递给父类处理。
-        
-        Args:
-            event: 鼠标事件对象
-        """
-        if event.button() == Qt.MouseButton.LeftButton:
-            # 获取点击位置对应的逻辑列索引
-            logical_index: int = self.logicalIndexAt(event.position().toPoint())
-            
-            # 检查是否点击了复选框列的复选框区域
-            if logical_index in self.checkbox_columns:
-                checkbox_rect: Optional[QRect] = self.checkbox_rects.get(logical_index)
-                if checkbox_rect and checkbox_rect.contains(event.position().toPoint()):
-                    self._toggle_checkbox(logical_index)
-                    return
-        
-        # 非复选框区域点击，传递给父类处理
-        super().mousePressEvent(event)
-    
-    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
-        """处理鼠标双击事件。
-        
-        为了模拟标准QCheckBox的双击行为（双击切换两次状态），
-        在双击复选框时额外执行一次状态切换。
-        
-        Args:
-            event: 鼠标事件对象
-        """
-        if event.button() == Qt.MouseButton.LeftButton:
-            # 获取双击位置对应的逻辑列索引
-            logical_index: int = self.logicalIndexAt(event.position().toPoint())
-            
-            # 检查是否双击了复选框列的复选框区域
-            if logical_index in self.checkbox_columns:
-                checkbox_rect: Optional[QRect] = self.checkbox_rects.get(logical_index)
-                if checkbox_rect and checkbox_rect.contains(event.position().toPoint()):
-                    # 双击时额外切换一次，模拟标准QCheckBox行为
-                    self._toggle_checkbox(logical_index)
-                    return
-        
-        # 非复选框区域双击，传递给父类处理
-        super().mouseDoubleClickEvent(event)
-    
-    def _toggle_checkbox(self, logical_index: int) -> None:
-        """切换指定列复选框的状态。
-        
-        这是一个内部方法，用于统一处理复选框状态切换逻辑。
-        切换状态后会通知父组件并触发界面重绘。
-        
-        Args:
-            logical_index: 要切换状态的逻辑列索引
-        """
-        # 切换复选框的选中状态
-        current_state: bool = self.checkbox_states.get(logical_index, False)
-        self.checkbox_states[logical_index] = not current_state
-        
-        # 通知父组件复选框状态变化，用于实现全选/取消全选功能
-        if hasattr(self.parent(), 'on_header_checkbox_changed'):
-            # 将布尔状态转换为Qt的CheckState值（0=未选中，2=选中）
-            state: int = 2 if self.checkbox_states[logical_index] else 0
-            self.parent().on_header_checkbox_changed(logical_index, state)
-        
-        # 触发表头重绘以更新复选框显示
-        self.viewport().update()
 
 
 class ExpandableTableWidget(QTableWidget):
@@ -249,10 +95,10 @@ class ExpandableTableWidget(QTableWidget):
         
         # 设置自定义表头
         custom_header = CheckboxHeaderView(Qt.Orientation.Horizontal, self)
-        self.setHorizontalHeader(custom_header)
+        # self.setHorizontalHeader(custom_header)
         
-        self.setup_table()  # 设置表格基本属性
-        self.setup_data()   # 设置表格数据
+        # self.setup_table()  # 设置表格基本属性
+        # self.setup_data()   # 设置表格数据
         
         # 强制刷新表头显示
         self.horizontalHeader().viewport().update()
