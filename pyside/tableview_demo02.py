@@ -303,7 +303,7 @@ class ExpandableTableWidget(QTableWidget):
         # 设置表格属性
         self.setSortingEnabled(False)  # 禁用排序功能
         self.setAlternatingRowColors(True)  # 启用交替行颜色
-        self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)  # 选择单个项目
+        self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)  # 选择整行
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)  # 单选模式
         self.verticalHeader().setVisible(False)  # 隐藏行号
         # 注意：setSectionsClickable已在CheckboxHeaderView中设置
