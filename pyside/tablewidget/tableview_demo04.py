@@ -152,6 +152,96 @@ class TreeTableWidget(QTableWidget):
             name_item = self.item(parent_row, 0)
             if name_item.data(Qt.UserRole) == "expanded":
                 self.toggle_children(parent_row)
+                
+    def insert_row_at(self, position, name, type_val, desc, is_parent=False, parent_idx=-1):
+        """在指定位置插入新行，并更新索引"""
+        # 插入新行
+        self.insertRow(position)
+        
+        # 创建新的表格项
+        name_item = QTableWidgetItem(name)
+        type_item = QTableWidgetItem(type_val)
+        desc_item = QTableWidgetItem(desc)
+        
+        if is_parent:
+            font = QFont()
+            font.setBold(True)
+            name_item.setFont(font)
+            type_item.setFont(font)
+            desc_item.setFont(font)
+            name_item.setData(Qt.UserRole, "expanded")
+            name_item.setText("▼ " + name)
+        
+        self.setItem(position, 0, name_item)
+        self.setItem(position, 1, type_item)
+        self.setItem(position, 2, desc_item)
+        
+        # 更新所有索引
+        self.update_indices_after_insert(position, is_parent, parent_idx)
+        
+    def update_indices_after_insert(self, insert_position, is_parent, parent_idx):
+        """插入行后更新所有相关索引"""
+        # 更新父行索引列表
+        updated_parent_rows = []
+        for parent_row in self.parent_rows:
+            if parent_row >= insert_position:
+                updated_parent_rows.append(parent_row + 1)
+            else:
+                updated_parent_rows.append(parent_row)
+        
+        # 如果插入的是父行，添加到父行列表
+        if is_parent:
+            updated_parent_rows.append(insert_position)
+            updated_parent_rows.sort()
+        
+        self.parent_rows = updated_parent_rows
+        
+        # 更新子行索引字典
+        updated_child_rows = {}
+        for parent_row, children in self.child_rows.items():
+            # 更新父行索引
+            new_parent_row = parent_row + 1 if parent_row >= insert_position else parent_row
+            
+            # 更新子行索引
+            updated_children = []
+            for child_row in children:
+                if child_row >= insert_position:
+                    updated_children.append(child_row + 1)
+                else:
+                    updated_children.append(child_row)
+            
+            updated_child_rows[new_parent_row] = updated_children
+        
+        # 如果插入的是父行，初始化其子行列表
+        if is_parent:
+            updated_child_rows[insert_position] = []
+        # 如果插入的是子行，添加到对应父行的子行列表
+        elif parent_idx != -1:
+            # 找到更新后的父行索引
+            updated_parent_idx = parent_idx + 1 if parent_idx >= insert_position else parent_idx
+            if updated_parent_idx in updated_child_rows:
+                updated_child_rows[updated_parent_idx].append(insert_position)
+                updated_child_rows[updated_parent_idx].sort()
+        
+        self.child_rows = updated_child_rows
+        
+    def add_test_row(self):
+        """测试方法：在第一个父行下添加一个新的子行"""
+        if self.parent_rows:
+            first_parent = self.parent_rows[0]
+            # 在第一个父行的第一个子行位置插入新行
+            insert_position = first_parent + 10000
+            self.insert_row_at(
+                insert_position,
+                "  新插入的测试功能",
+                "功能",
+                "这是一个测试插入的功能",
+                is_parent=False,
+                parent_idx=first_parent
+            )
+            print(f"在位置 {insert_position} 插入新行")
+            print(f"父行索引: {self.parent_rows}")
+            print(f"子行索引: {self.child_rows}")
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -171,9 +261,11 @@ class MainWindow(QMainWindow):
         
         expand_btn = QPushButton("展开所有")
         collapse_btn = QPushButton("折叠所有")
+        test_insert_btn = QPushButton("测试插入行")
         
         button_layout.addWidget(expand_btn)
         button_layout.addWidget(collapse_btn)
+        button_layout.addWidget(test_insert_btn)
         
         # 创建表格
         self.table = TreeTableWidget()
@@ -181,6 +273,7 @@ class MainWindow(QMainWindow):
         # 连接按钮信号
         expand_btn.clicked.connect(self.table.expand_all)
         collapse_btn.clicked.connect(self.table.collapse_all)
+        test_insert_btn.clicked.connect(self.table.add_test_row)
         
         # 添加到主布局
         layout.addLayout(button_layout)
