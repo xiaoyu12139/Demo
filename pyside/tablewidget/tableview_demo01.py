@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
     QStyleOptionViewItem, QStyleOptionButton
 )
 from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QRect, QEvent
-from PySide6.QtGui import QFont, QPalette, QPainter, QMouseEvent
+from PySide6.QtGui import QFont, QPalette, QPainter, QMouseEvent, QPen, QColor
 
 
 class CheckBoxDelegate(QStyledItemDelegate):
@@ -74,22 +74,31 @@ class CheckBoxDelegate(QStyledItemDelegate):
         if option.state & QStyle.StateFlag.State_Selected:
             painter.fillRect(option.rect, option.palette.highlight())
         
-        # 创建复选框样式选项
-        checkbox_option = QStyleOptionButton()
-        checkbox_option.rect = checkbox_rect
-        checkbox_option.state = QStyle.StateFlag.State_Enabled
-        
-        # 根据数据设置复选框状态
+        # 绘制无边框复选框
         check_state = index.data(Qt.ItemDataRole.CheckStateRole)
         if check_state == Qt.CheckState.Checked:
-            checkbox_option.state |= QStyle.StateFlag.State_On
-        else:
-            checkbox_option.state |= QStyle.StateFlag.State_Off
-            
-        # 绘制复选框
-        self.parent().style().drawControl(
-            QStyle.ControlElement.CE_CheckBox, checkbox_option, painter, self.parent()
-        )
+            # 只绘制选中标记，不绘制边框
+            painter.setPen(QPen(QColor(0, 120, 215), 2))  # 蓝色勾选标记
+            # 绘制勾选标记
+            check_size = min(checkbox_rect.width(), checkbox_rect.height()) - 4
+            check_rect = QRect(
+                checkbox_rect.x() + (checkbox_rect.width() - check_size) // 2,
+                checkbox_rect.y() + (checkbox_rect.height() - check_size) // 2,
+                check_size, check_size
+            )
+            # 绘制勾号
+            painter.drawLine(
+                check_rect.x() + check_size // 4,
+                check_rect.y() + check_size // 2,
+                check_rect.x() + check_size // 2,
+                check_rect.y() + check_size * 3 // 4
+            )
+            painter.drawLine(
+                check_rect.x() + check_size // 2,
+                check_rect.y() + check_size * 3 // 4,
+                check_rect.x() + check_size * 3 // 4,
+                check_rect.y() + check_size // 4
+            )
     
     def editorEvent(self, event: QEvent, model: QAbstractTableModel, option: QStyleOptionViewItem, index: QModelIndex) -> bool:
         """处理复选框的点击事件.

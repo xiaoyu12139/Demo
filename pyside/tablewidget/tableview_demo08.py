@@ -8,11 +8,12 @@ from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QRect
 from PySide6.QtGui import QPainter, QFont, QFontMetrics, QColor
 
 class IndentedTextDelegate(QStyledItemDelegate):
-    """缩进文本委托"""
+    """缩进文本委托 - 支持行隐藏时的缩进调整"""
     
-    def __init__(self, indent_width=20, parent=None):
+    def __init__(self, indent_width=20, table_view=None, parent=None):
         super().__init__(parent)
         self.indent_width = indent_width
+        self.table_view = table_view
         
     def paint(self, painter, option, index):
         painter.save()
@@ -20,33 +21,42 @@ class IndentedTextDelegate(QStyledItemDelegate):
         # 获取原始矩形
         rect = option.rect
         
-        # 绘制背景
-        if option.state & QStyle.State_Selected:
-            painter.fillRect(rect, option.palette.highlight())
-            painter.setPen(option.palette.highlightedText().color())
-        else:
-            painter.fillRect(rect, option.palette.base())
-            painter.setPen(option.palette.text().color())
-            
-        # 设置字体
-        font = option.font
-        painter.setFont(font)
+        # 使用应用程序样式绘制完整的单元格背景和边框
+        style = option.widget.style() if option.widget else QApplication.style()
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, option, painter, option.widget)
         
-        # 获取文本
+        # 获取文本数据
         text = index.data(Qt.DisplayRole)
         if text:
+            # 设置文本颜色（根据选中状态）
+            if option.state & QStyle.StateFlag.State_Selected:
+                painter.setPen(option.palette.highlightedText().color())
+            else:
+                painter.setPen(option.palette.text().color())
+                
+            # 设置字体
+            painter.setFont(option.font)
+            
+            # 计算动态缩进 - 考虑隐藏行的影响
+            dynamic_indent = self.calculate_dynamic_indent(index)
+            
             # 创建缩进后的矩形
             indented_rect = QRect(
-                rect.x() + self.indent_width,
+                rect.x() + dynamic_indent,
                 rect.y(),
-                rect.width() - self.indent_width,
+                rect.width() - dynamic_indent,
                 rect.height()
             )
             
-            # 绘制文本
+            # 绘制缩进后的文本
             painter.drawText(indented_rect, Qt.AlignLeft | Qt.AlignVCenter, str(text))
-            
+        
         painter.restore()
+        
+    def calculate_dynamic_indent(self, index):
+        """计算动态缩进，确保每次绘制时都使用固定的缩进值"""
+        # 直接返回固定的缩进宽度，确保一致性
+        return self.indent_width
 
 class ColoredTextDelegate(QStyledItemDelegate):
     """彩色文本委托"""
@@ -62,7 +72,7 @@ class ColoredTextDelegate(QStyledItemDelegate):
         rect = option.rect
         
         # 绘制背景
-        if option.state & QStyle.State_Selected:
+        if option.state & QStyle.StateFlag.State_Selected:
             painter.fillRect(rect, option.palette.highlight())
         else:
             painter.fillRect(rect, option.palette.base())
@@ -175,7 +185,7 @@ class TableViewDemo08(QMainWindow):
         self.table_view.setRowHeight(0, 40)  # 设置行高
         
         # 创建不同的委托
-        self.indent_delegate = IndentedTextDelegate(30)
+        self.indent_delegate = IndentedTextDelegate(30, self.table_view)
         self.colored_delegate = ColoredTextDelegate(QColor(255, 0, 0))
         self.border_delegate = BorderDelegate(QColor(0, 0, 255))
         
@@ -225,6 +235,28 @@ class TableViewDemo08(QMainWindow):
         reset_btn.clicked.connect(self.init_delegates)
         layout.addWidget(reset_btn)
         
+        # 添加分隔符
+        layout.addWidget(QLabel("|"))
+        
+        # 行隐藏功能
+        layout.addWidget(QLabel("隐藏行:"))
+        self.hide_row_spin = QSpinBox()
+        self.hide_row_spin.setRange(0, self.model.rowCount() - 1)
+        layout.addWidget(self.hide_row_spin)
+        
+        # 隐藏/显示按钮
+        hide_btn = QPushButton("隐藏行")
+        hide_btn.clicked.connect(self.hide_row)
+        layout.addWidget(hide_btn)
+        
+        show_btn = QPushButton("显示行")
+        show_btn.clicked.connect(self.show_row)
+        layout.addWidget(show_btn)
+        
+        show_all_btn = QPushButton("显示所有行")
+        show_all_btn.clicked.connect(self.show_all_rows)
+        layout.addWidget(show_all_btn)
+
         layout.addStretch()
         return panel
         
@@ -236,11 +268,12 @@ class TableViewDemo08(QMainWindow):
         info.setHtml("""
         <h3>行级自定义委托演示：</h3>
         <ul>
-        <li><b>缩进委托：</b>为指定行添加左边距缩进效果</li>
+        <li><b>缩进委托：</b>为指定行添加左边距缩进效果，使用固定缩进值</li>
         <li><b>彩色委托：</b>为指定行设置红色粗体文本</li>
         <li><b>边框委托：</b>为指定行添加蓝色边框</li>
         </ul>
         <p><b>使用方法：</b>选择行号和委托类型，点击"应用委托"按钮</p>
+        <p><b>行隐藏功能：</b>可以隐藏/显示指定行，缩进委托保持固定的缩进值</p>
         """)
         return info
         
@@ -290,6 +323,24 @@ class TableViewDemo08(QMainWindow):
                 self.table_view.setItemDelegateForRow(row, delegate)
                     
         print("已初始化示例委托设置")
+        
+    def hide_row(self):
+        """隐藏指定行"""
+        row = self.hide_row_spin.value()
+        self.table_view.setRowHidden(row, True)
+        print(f"已隐藏第{row}行")
+        
+    def show_row(self):
+        """显示指定行"""
+        row = self.hide_row_spin.value()
+        self.table_view.setRowHidden(row, False)
+        print(f"已显示第{row}行")
+        
+    def show_all_rows(self):
+        """显示所有行"""
+        for row in range(self.model.rowCount()):
+            self.table_view.setRowHidden(row, False)
+        print("已显示所有行")
 
 def main():
     app = QApplication(sys.argv)

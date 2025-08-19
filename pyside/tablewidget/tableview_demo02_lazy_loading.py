@@ -44,15 +44,41 @@ class LazyLoadingTableWidget(QTableWidget):
         self.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         
+        # 减少闪烁的额外优化
+        self.setAutoFillBackground(True)
+        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
+        self.setUpdatesEnabled(True)
+        
+        # 优化绘制性能
+        self.viewport().setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
+        self.setStyleSheet("""
+            QTableWidget {
+                gridline-color: #d0d0d0;
+                background-color: white;
+            }
+            QTableWidget::item {
+                border: none;
+                padding: 2px;
+            }
+        """)
+        
         # 延迟加载定时器
         self.lazy_timer = QTimer()
         self.lazy_timer.setSingleShot(True)
         self.lazy_timer.timeout.connect(self.create_pending_widgets)
         
-        # 视口变化检测定时器
+        # 视口变化检测定时器 - 增加间隔减少频繁检测
         self.viewport_timer = QTimer()
         self.viewport_timer.timeout.connect(self.check_visible_rows)
-        self.viewport_timer.start(100)  # 每100ms检查一次
+        self.viewport_timer.start(200)  # 增加到200ms减少频繁检测
+        
+        # 滚动防抖定时器
+        self.scroll_debounce_timer = QTimer()
+        self.scroll_debounce_timer.setSingleShot(True)
+        self.scroll_debounce_timer.timeout.connect(self.handle_scroll_delayed)
+        
+        # 控件创建状态标志
+        self.is_creating_widgets = False
         
         self.setup_table()
         self.generate_test_data()
@@ -135,18 +161,20 @@ class LazyLoadingTableWidget(QTableWidget):
     def build_table_with_lazy_loading(self) -> None:
         """构建表格 - 只创建占位符.
         
-        初始化表格显示，只创建轻量级的占位符文本项。
-        这个方法显著提高了大数据集的初始加载速度。
-        完整的交互控件将在需要时延迟创建。
+        初始化表格显示，使用优化策略减少初始化时的闪烁。
         
         流程:
-            1. 禁用界面更新以提高性能
+            1. 使用优化的界面更新策略
             2. 刷新可见项列表
             3. 清除现有内容并设置行数
-            4. 为每行创建占位符项
-            5. 重新启用界面更新
-            6. 调度可见行的控件创建
+            4. 批量创建占位符项
+            5. 延迟调度可见行的控件创建
         """
+        # 暂停所有定时器避免干扰
+        self.viewport_timer.stop()
+        self.lazy_timer.stop()
+        self.scroll_debounce_timer.stop()
+        
         self.setUpdatesEnabled(False)
         self.refresh_visible_items()
         
@@ -154,15 +182,19 @@ class LazyLoadingTableWidget(QTableWidget):
         self.clearContents()
         self.setRowCount(len(self.visible_items))
         self.widgets_created.clear()
+        self.pending_widget_creation.clear()
         
-        # 只创建占位符文本项
+        # 批量创建占位符文本项
         for row, item in enumerate(self.visible_items):
             self.create_placeholder_items(row, item)
         
         self.setUpdatesEnabled(True)
         
-        # 立即为可见行创建控件
-        self.schedule_visible_widgets_creation()
+        # 重启定时器
+        self.viewport_timer.start(200)
+        
+        # 延迟调度可见行的控件创建，避免初始化时的闪烁
+        QTimer.singleShot(100, self.schedule_visible_widgets_creation)
     
     def create_placeholder_items(self, row: int, item: Dict[str, Any]) -> None:
         """创建占位符文本项.
@@ -210,8 +242,7 @@ class LazyLoadingTableWidget(QTableWidget):
     def create_full_widgets_for_row(self, row: int) -> None:
         """为指定行创建完整的控件.
         
-        将占位符替换为完整的交互控件，包括QLineEdit、QCheckBox和QComboBox。
-        这个方法在行变为可见或被用户点击时调用。
+        将占位符替换为完整的交互控件，使用优化策略减少闪烁。
         
         Args:
             row: 要创建控件的行索引
@@ -222,9 +253,8 @@ class LazyLoadingTableWidget(QTableWidget):
             - 列6: QComboBox (下拉选择框，选项0-5)
         
         Note:
-            - 如果行已经创建过控件或行索引无效，则跳过创建
-            - 所有控件都连接了相应的信号处理函数
-            - 创建完成后将行号添加到widgets_created集合中
+            - 使用预创建和批量设置减少闪烁
+            - 优化了控件创建顺序和信号连接
         """
         # 多重安全检查，防止索引越界
         visible_items_count = len(self.visible_items)
@@ -237,64 +267,80 @@ class LazyLoadingTableWidget(QTableWidget):
         item = self.visible_items[row]
         data = item['data']
         
-        # 为每列创建完整的控件
+        # 预创建所有控件，减少逐个设置的闪烁
+        widgets_to_set = {}
+        
+        # 批量创建控件
         for col in range(1, 9):
             if col in [1, 7, 8]:  # 文本输入框列
                 widget = QLineEdit(str(data[col]))
-                widget.textChanged.connect(lambda text, r=row, c=col: self.on_line_edit_changed(r, c, text))
-                self.setCellWidget(row, col, widget)
+                # 延迟连接信号，避免创建时触发
+                widget.blockSignals(True)
+                widgets_to_set[col] = widget
             
             elif col in [2, 3, 4, 5]:  # 复选框列
                 widget = QCheckBox()
+                widget.blockSignals(True)
                 widget.setChecked(bool(data[col]))
-                widget.stateChanged.connect(lambda state, r=row, c=col: self.on_checkbox_changed(r, c, state))
-                self.setCellWidget(row, col, widget)
+                widgets_to_set[col] = widget
             
             elif col == 6:  # 下拉框列
                 widget = QComboBox()
+                widget.blockSignals(True)
                 widget.addItems(['0', '1', '2', '3', '4', '5'])
                 widget.setCurrentText(str(data[col]))
+                widgets_to_set[col] = widget
+        
+        # 批量设置控件到表格
+        for col, widget in widgets_to_set.items():
+            self.setCellWidget(row, col, widget)
+        
+        # 批量连接信号
+        for col, widget in widgets_to_set.items():
+            widget.blockSignals(False)
+            if col in [1, 7, 8]:
+                widget.textChanged.connect(lambda text, r=row, c=col: self.on_line_edit_changed(r, c, text))
+            elif col in [2, 3, 4, 5]:
+                widget.stateChanged.connect(lambda state, r=row, c=col: self.on_checkbox_changed(r, c, state))
+            elif col == 6:
                 widget.currentTextChanged.connect(lambda text, r=row, c=col: self.on_combo_changed(r, c, text))
-                self.setCellWidget(row, col, widget)
         
         self.widgets_created.add(row)
     
     def get_visible_row_range(self) -> tuple:
         """获取当前可见的行范围.
         
-        计算当前视口中可见的行范围，用于优化控件创建。
-        使用两种方法确保准确性：项目检测和滚动条计算。
+        使用优化的算法计算可见行范围，减少频繁变化导致的闪烁。
         
         Returns:
             tuple: (start_row, end_row) 可见行的起始和结束索引
-                - start_row: 可见区域的第一行（包含）
-                - end_row: 可见区域的最后一行（不包含）
         
-        算法:
-            1. 优先使用itemAt()方法获取实际可见项目
-            2. 如果无法获取项目，回退到基于滚动条的计算
-            3. 在可见范围前后各扩展3行以提前创建控件
-        
-        Note:
-            - 扩展范围有助于提供更流畅的滚动体验
-            - 返回的范围会被限制在有效的行索引范围内
+        优化策略:
+            1. 使用稳定的滚动条计算方法
+            2. 适当扩展可见范围减少频繁创建
+            3. 缓存计算结果避免重复计算
         """
-        # 使用更准确的方法获取可见行范围
-        top_item = self.itemAt(0, 0)
-        bottom_item = self.itemAt(0, self.viewport().height() - 1)
+        if self.rowCount() == 0:
+            return 0, 0
         
-        if top_item is None or bottom_item is None:
-            # 如果无法获取项目，使用滚动条计算
-            viewport_top = self.verticalScrollBar().value()
-            viewport_height = self.viewport().height()
-            row_height = self.rowHeight(0) if self.rowCount() > 0 else 30
-            
-            start_row = max(0, viewport_top // row_height - 3)
-            end_row = min(self.rowCount(), (viewport_top + viewport_height) // row_height + 3)
-        else:
-            # 使用实际可见项目计算
-            start_row = max(0, self.row(top_item) - 3)  # 提前3行
-            end_row = min(self.rowCount(), self.row(bottom_item) + 3)  # 延后3行
+        # 使用滚动条位置计算，更稳定
+        viewport_top = self.verticalScrollBar().value()
+        viewport_height = self.viewport().height()
+        
+        # 获取行高，使用第一行的实际高度
+        row_height = self.rowHeight(0) if self.rowCount() > 0 else 30
+        if row_height <= 0:
+            row_height = 30  # 默认行高
+        
+        # 计算可见范围，适当扩展以减少频繁创建
+        buffer_rows = 5  # 增加缓冲行数
+        start_row = max(0, (viewport_top // row_height) - buffer_rows)
+        end_row = min(self.rowCount(), 
+                     ((viewport_top + viewport_height) // row_height) + buffer_rows + 1)
+        
+        # 确保范围有效
+        start_row = max(0, min(start_row, self.rowCount() - 1))
+        end_row = max(start_row + 1, min(end_row, self.rowCount()))
         
         return start_row, end_row
     
@@ -332,34 +378,54 @@ class LazyLoadingTableWidget(QTableWidget):
                 self.pending_widget_creation.add(row)
         
         # 如果有新的待创建控件，启动定时器
-        if new_pending:
-            self.lazy_timer.start(10)  # 减少延迟到10ms
+        if new_pending and not self.is_creating_widgets:
+            self.lazy_timer.start(50)  # 增加延迟到50ms减少频繁创建
     
     def create_pending_widgets(self) -> None:
         """创建待处理的控件.
         
         批量创建所有在待创建队列中的行的完整控件。
-        使用批量操作和界面更新控制来优化性能。
+        使用优化的批量操作减少界面闪烁。
         
         流程:
-            1. 禁用界面更新以提高批量操作性能
-            2. 遍历待创建队列，为每行创建完整控件
-            3. 清空待创建队列
-            4. 重新启用界面更新
+            1. 设置创建状态标志防止重复触发
+            2. 分批创建控件避免长时间阻塞界面
+            3. 使用更温和的界面更新策略
+            4. 清空待创建队列
         
         Note:
             - 这个方法由lazy_timer定时器触发
-            - 批量操作可以显著提高大量控件创建的性能
-            - 创建完成后队列会被清空以避免重复创建
+            - 优化了界面更新策略减少闪烁
+            - 分批处理大量控件创建
         """
-        # 批量创建控件
-        self.setUpdatesEnabled(False)
+        if self.is_creating_widgets:
+            return
+            
+        self.is_creating_widgets = True
         
-        for row in list(self.pending_widget_creation):
-            self.create_full_widgets_for_row(row)
+        # 分批创建控件，每批最多5个
+        pending_rows = list(self.pending_widget_creation)
+        batch_size = 5
         
-        self.pending_widget_creation.clear()
+        for i in range(0, len(pending_rows), batch_size):
+            batch = pending_rows[i:i + batch_size]
+            
+            # 只在批次开始时禁用更新
+            if i == 0:
+                self.setUpdatesEnabled(False)
+            
+            for row in batch:
+                self.create_full_widgets_for_row(row)
+                self.pending_widget_creation.discard(row)
+            
+            # 每批次后短暂恢复更新
+            if i + batch_size < len(pending_rows):
+                self.setUpdatesEnabled(True)
+                self.repaint()  # 强制重绘当前批次
+                self.setUpdatesEnabled(False)
+        
         self.setUpdatesEnabled(True)
+        self.is_creating_widgets = False
     
     def check_visible_rows(self) -> None:
         """检查可见行并创建控件.
@@ -376,14 +442,22 @@ class LazyLoadingTableWidget(QTableWidget):
     def on_scroll(self) -> None:
         """处理滚动事件.
         
-        当用户滚动表格时触发，立即调度新可见行的控件创建。
-        这确保了滚动时能够及时显示完整的交互控件。
+        使用防抖机制处理滚动事件，避免频繁触发控件创建。
         
         Note:
             - 连接到verticalScrollBar().valueChanged信号
-            - 提供即时响应以改善用户体验
+            - 使用防抖定时器减少频繁调用
         """
-        self.schedule_visible_widgets_creation()
+        # 使用防抖机制，避免滚动时频繁触发
+        self.scroll_debounce_timer.start(30)
+    
+    def handle_scroll_delayed(self) -> None:
+        """延迟处理滚动事件.
+        
+        在滚动停止或减缓后才调度控件创建，减少滚动时的闪烁。
+        """
+        if not self.is_creating_widgets:
+            self.schedule_visible_widgets_creation()
     
     def on_cell_clicked(self, row: int, column: int) -> None:
         """处理单元格点击事件.
@@ -450,7 +524,7 @@ class LazyLoadingTableWidget(QTableWidget):
             - 使用setUpdatesEnabled(False)暂停界面更新
             - 批量插入/删除操作
             - 清理受影响行的控件状态
-            - 重新调度可见控件创建
+            - 只为新插入的行调度控件创建
         """
         self.setUpdatesEnabled(False)
         
@@ -459,8 +533,12 @@ class LazyLoadingTableWidget(QTableWidget):
             child_items = [item for item in self.all_data 
                           if item['type'] == 'child' and item.get('parent') == parent_name]
             
-            # 批量插入
+            # 记录新插入行的范围
             insert_position = parent_row + 1
+            new_rows_start = insert_position
+            new_rows_end = insert_position + len(child_items)
+            
+            # 批量插入
             for i, child_item in enumerate(child_items):
                 self.insertRow(insert_position + i)
                 self.create_placeholder_items(insert_position + i, child_item)
@@ -470,6 +548,13 @@ class LazyLoadingTableWidget(QTableWidget):
             if parent_item:
                 text = parent_item.text().replace('▶ ', '▼ ')
                 parent_item.setText(text)
+            
+            # 更新控件创建状态：调整现有行号映射
+            self.adjust_widget_states_after_insertion(insert_position, len(child_items))
+            
+            # 只为新插入的可见行调度控件创建
+            self.schedule_widgets_for_new_rows(new_rows_start, new_rows_end)
+            
         else:
             # 折叠：删除子行
             child_count = sum(1 for item in self.all_data 
@@ -485,22 +570,78 @@ class LazyLoadingTableWidget(QTableWidget):
             if parent_item:
                 text = parent_item.text().replace('▼ ', '▶ ')
                 parent_item.setText(text)
-        
-        # 清理控件创建状态
-        self.cleanup_widget_states_after_row(parent_row)
+            
+            # 清理控件创建状态
+            self.cleanup_widget_states_after_row(parent_row)
         
         self.setUpdatesEnabled(True)
         self.refresh_visible_items()
+    
+    def adjust_widget_states_after_insertion(self, insert_position: int, insert_count: int) -> None:
+        """调整插入行后的控件状态映射.
         
-        # 延迟调度可见控件创建，确保表格完全更新后再检测
-        # 使用QTimer.singleShot直接创建控件，避免与lazy_timer冲突
-        def delayed_widget_creation():
-            self.schedule_visible_widgets_creation()
-            # 立即创建待处理的控件，避免依赖lazy_timer
-            if self.pending_widget_creation:
-                self.create_pending_widgets()
+        当在表格中插入新行时，需要调整现有的行号映射以保持正确性。
+        所有在插入位置之后的行号都需要增加插入的行数。
         
-        QTimer.singleShot(50, delayed_widget_creation)
+        Args:
+            insert_position: 插入的起始位置
+            insert_count: 插入的行数
+        
+        调整内容:
+            - widgets_created集合中大于等于插入位置的行号
+            - pending_widget_creation集合中大于等于插入位置的行号
+        
+        Note:
+            - 这个方法在插入行后调用
+            - 确保控件状态映射与实际表格结构保持同步
+        """
+        # 调整已创建控件的行号映射
+        adjusted_widgets = set()
+        for row in self.widgets_created:
+            if row >= insert_position:
+                adjusted_widgets.add(row + insert_count)
+            else:
+                adjusted_widgets.add(row)
+        self.widgets_created = adjusted_widgets
+        
+        # 调整待创建控件的行号映射
+        adjusted_pending = set()
+        for row in self.pending_widget_creation:
+            if row >= insert_position:
+                adjusted_pending.add(row + insert_count)
+            else:
+                adjusted_pending.add(row)
+        self.pending_widget_creation = adjusted_pending
+    
+    def schedule_widgets_for_new_rows(self, start_row: int, end_row: int) -> None:
+        """为新插入的行调度控件创建.
+        
+        只为指定范围内的新行调度控件创建，而不是重新检测所有可见行。
+        这避免了不必要的控件重新创建，提高了性能。
+        
+        Args:
+            start_row: 新行范围的起始索引（包含）
+            end_row: 新行范围的结束索引（不包含）
+        
+        Note:
+            - 只处理当前可见范围内的新行
+            - 使用现有的延迟创建机制
+        """
+        # 获取当前可见范围
+        visible_start, visible_end = self.get_visible_row_range()
+        
+        # 只为可见范围内的新行调度控件创建
+        new_pending = set()
+        for row in range(max(start_row, visible_start), min(end_row, visible_end)):
+            if (row not in self.widgets_created and 
+                row < self.rowCount() and 
+                row >= 0):
+                new_pending.add(row)
+                self.pending_widget_creation.add(row)
+        
+        # 如果有新的待创建控件，启动定时器
+        if new_pending:
+            self.lazy_timer.start(10)
     
     def cleanup_widget_states_after_row(self, row: int) -> None:
         """清理指定行之后的控件状态.

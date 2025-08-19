@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electron Demo 01</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🚀 Electron Demo 应用</h1>
+            <p class="subtitle">一个简单而功能丰富的桌面应用演示</p>
+        </header>
+
+        <main class="main-content">
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📝</div>
+                    <h3>文本编辑器</h3>
+                    <textarea id="textEditor" placeholder="在这里输入文本..."></textarea>
+                    <div class="button-group">
+                        <button id="clearBtn" class="btn btn-secondary">清空</button>
+                        <button id="saveBtn" class="btn btn-primary">保存</button>
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3>主题切换</h3>
+                    <p>选择你喜欢的主题:</p>
+                    <div class="theme-selector">
+                        <button class="theme-btn" data-theme="light">🌞 浅色</button>
+                        <button class="theme-btn" data-theme="dark">🌙 深色</button>
+                        <button class="theme-btn" data-theme="blue">🔵 蓝色</button>
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>系统信息</h3>
+                    <div class="info-list">
+                        <div class="info-item">
+                            <span class="info-label">应用版本:</span>
+                            <span id="appVersion" class="info-value">加载中...</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Node.js版本:</span>
+                            <span id="nodeVersion" class="info-value"></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Electron版本:</span>
+                            <span id="electronVersion" class="info-value"></span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Chrome版本:</span>
+                            <span id="chromeVersion" class="info-value"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔧</div>
+                    <h3>功能演示</h3>
+                    <div class="demo-buttons">
+                        <button id="notificationBtn" class="btn btn-info">显示通知</button>
+                        <button id="dialogBtn" class="btn btn-warning">显示对话框</button>
+                        <button id="fileBtn" class="btn btn-success">选择文件</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="status-bar">
+                <div class="status-item">
+                    <span id="statusText">就绪</span>
+                </div>
+                <div class="status-item">
+                    <span id="currentTime"></span>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2024 Electron Demo. 使用 Electron 构建的桌面应用程序。</p>
+        </footer>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>

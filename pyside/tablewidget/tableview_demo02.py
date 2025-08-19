@@ -31,7 +31,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import (
     Qt, QModelIndex, QRect, QEvent
 )
-from PySide6.QtGui import QFont, QPalette, QPainter, QMouseEvent, QIcon, QPixmap
+from PySide6.QtGui import QFont, QPalette, QPainter, QMouseEvent, QIcon, QPixmap, QPen, QColor
 from PySide6.QtSvg import QSvgRenderer
 
 
@@ -156,10 +156,22 @@ class CheckboxHeaderView(QHeaderView):
         else:
             checkbox_option.state |= QStyle.StateFlag.State_Off
             
-        # 使用Qt样式系统绘制复选框，传入QCheckBox以应用样式表
+        # 保存当前画笔状态
+        old_pen = painter.pen()
+        
+        # 使用Qt样式系统绘制复选框
         self.style().drawControl(
             QStyle.ControlElement.CE_CheckBox, checkbox_option, painter, self._style_checkbox
         )
+        
+        # 用背景色覆盖边框来隐藏黑线
+        painter.setPen(QPen(rect.color() if hasattr(rect, 'color') else QColor(45, 45, 45), 1))
+        painter.setBrush(painter.background())
+        # 绘制覆盖边框的矩形（只绘制边框部分）
+        painter.drawRect(checkbox_rect.adjusted(-1, -1, 1, 1))
+        
+        # 恢复画笔状态
+        painter.setPen(old_pen)
     
     def mousePressEvent(self, event: QMouseEvent) -> None:
         """处理鼠标按下事件。

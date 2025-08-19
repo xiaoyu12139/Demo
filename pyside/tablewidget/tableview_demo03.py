@@ -67,7 +67,8 @@ class CustomHeaderView(QHeaderView):
         text = self.model().headerData(logicalIndex, self.orientation(), Qt.ItemDataRole.DisplayRole)
         
         # 绘制背景
-        painter.fillRect(rect, self.palette().button())
+        from PySide6.QtGui import QColor
+        painter.fillRect(rect, QColor('#767676'))
         
         # 绘制边框
         painter.setPen(self.palette().dark().color())
@@ -75,6 +76,12 @@ class CustomHeaderView(QHeaderView):
         
         # 设置文本颜色
         painter.setPen(self.palette().buttonText().color())
+        
+        # 设置字体大小（验证代码中设置字体）
+        font = painter.font()
+        font.setPointSize(18)  # 设置字体大小为18点（更明显的变化）
+        font.setBold(True)     # 设置粗体
+        painter.setFont(font)
         
         if logicalIndex in self.checkbox_columns:
             # 有复选框的列：绘制复选框和文本
@@ -181,12 +188,12 @@ class CustomTableWidget(QTableWidget):
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
 
         
-        # 设置列宽
-        self.setColumnWidth(0, 100)  # 姓名列
-        self.setColumnWidth(1, 80)   # 数学列
-        self.setColumnWidth(2, 80)   # 英语列
-        self.setColumnWidth(3, 80)   # 物理列
-        self.setColumnWidth(4, 80)   # 总分列
+        # 设置列宽 - 为每列指定不同的宽度
+        self.setColumnWidth(0, 120)  # 姓名列 - 较宽以显示姓名
+        self.setColumnWidth(1, 90)   # 数学列 - 中等宽度
+        self.setColumnWidth(2, 90)   # 英语列 - 中等宽度
+        self.setColumnWidth(3, 90)   # 物理列 - 中等宽度
+        self.setColumnWidth(4, 100)  # 总分列 - 稍宽以显示总分
         
         # 设置字体
         font = QFont()
@@ -290,7 +297,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(title_label)
         
         # 添加说明
-        info_label = QLabel('点击表头的复选框可以全选/取消全选对应列的所有复选框')
+        info_label = QLabel('点击表头的复选框可以全选/取消全选对应列的所有复选框\n使用"测试QSS字体"和"重置字体"按钮来验证不同的字体设置方法')
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info_label.setStyleSheet('color: #666666; margin: 5px;')
         main_layout.addWidget(info_label)
@@ -311,6 +318,15 @@ class MainWindow(QMainWindow):
         button_layout.addWidget(clear_btn)
         
         button_layout.addStretch()
+        
+        # 添加字体测试按钮
+        font_test_btn = QPushButton('测试QSS字体')
+        font_test_btn.clicked.connect(self._test_qss_font)
+        button_layout.addWidget(font_test_btn)
+        
+        reset_font_btn = QPushButton('重置字体')
+        reset_font_btn.clicked.connect(self._reset_font)
+        button_layout.addWidget(reset_font_btn)
         
         info_btn = QPushButton('关于')
         info_btn.clicked.connect(self._show_info)
@@ -342,6 +358,30 @@ class MainWindow(QMainWindow):
                         checkbox.setChecked(False)
         
         print('已清除所有选择')
+    
+    def _test_qss_font(self) -> None:
+        """测试通过QSS设置表头字体"""
+        qss_style = """
+            QHeaderView::section {
+                font-size: 24px;
+                font-weight: bold;
+                color: #2c3e50;
+                background-color: #ecf0f1;
+                border: 1px solid #bdc3c7;
+                padding: 8px;
+            }
+            QHeaderView::section:hover {
+                background-color: #d5dbdb;
+            }
+        """
+        self.table.setStyleSheet(qss_style)
+        print('已应用QSS字体样式 - 24px粗体')
+    
+    def _reset_font(self) -> None:
+        """重置字体样式"""
+        self.table.setStyleSheet('')  # 清除QSS样式
+        # 表头会使用paintSection中设置的字体（18px粗体）
+        print('已重置字体样式 - 使用paintSection中的设置（18px粗体）')
     
     def _show_info(self) -> None:
         """显示关于信息"""
