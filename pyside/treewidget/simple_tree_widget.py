@@ -37,11 +37,11 @@ class SimpleTreeWidgetDemo(QMainWindow):
         # 设置样式，使用相对路径引用本地SVG文件
         self.tree_widget.setStyleSheet("""
         QTreeView::branch:closed:has-children {
-    image: none;
-}
-QTreeView::branch:open:has-children {
-    image: none;
-}
+            image: none;
+        }
+        QTreeView::branch:open:has-children {
+            image: none;
+        }
         """)
         
         # 加根节点
