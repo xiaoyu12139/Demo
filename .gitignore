@@ -1,1 +1,9 @@
 nodejs/electron/demo01/node_modules
+
+# 忽略任意位置的.vs文件夹（Visual Studio缓存）
+**/.vs/
+
+# 忽略任意位置的build文件夹（编译输出）
+**/build/
+
+**/out/
