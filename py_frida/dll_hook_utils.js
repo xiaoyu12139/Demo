@@ -191,3 +191,53 @@ function findInternalFunctions(module, fun_name = "InternalFunction") {
     
     return internalFunctions;
 }
+
+// 简化版内存扫描查找内部函数
+function findInternalFunctionsByScan(module) {
+    var internalFunctions = {};
+    var foundCount = 0;
+    var maxResults = 20;
+    
+    console.log("[*] Starting simplified memory scan...");
+    
+    try {
+        // 方法1: 扫描函数序言模式
+        var patterns = [
+            "48 89 4C 24 08",      // push ebp; mov ebp, esp (x86)
+            "57",   // mov [rsp+xx], rbx (x64)
+            "48 83 EC 50",   // mov [rsp+xx], rbx (x64)
+            "48 83 7C 24 60 00",   // mov [rsp+xx], rbx (x64)
+            "75 0A",   // mov [rsp+xx], rbx (x64)
+        ];
+        
+        // 将数组拼接成长串字节码
+        var combinedPattern = patterns.join(" ");
+        console.log(`[*] Combined pattern: ${combinedPattern}`);
+        
+        // 获取模块的可执行内存范围
+        var moduleRange = {
+            base: module.base,
+            size: module.size
+        };
+        
+        try {
+            Memory.scan(moduleRange.base, moduleRange.size, combinedPattern, {
+                onMatch: function(address, size) {
+                    var funcName = `InternalFunc_1`;
+                    internalFunctions[funcName] = address;
+                    
+                    console.log(`[+] Found function at ${address} (${funcName})`);
+                },
+                onComplete: function() {}
+            });
+        } catch (e) {
+            console.log(`[!] Pattern scan error: ${e.message}`);
+        }
+        
+    } catch (e) {
+        console.log(`[!] Memory scan error: ${e.message}`);
+    }
+    
+    console.log(`[*] Scan completed, found ${foundCount} functions`);
+    return internalFunctions;
+}

@@ -48,29 +48,31 @@ function printTestData(dataPtr, functionName) {
         }
 }
 
+
 // 通用hook函数已移至 dll_hook_utils.js
 
 // Hook test_dll 对外暴露的函数
 try {
     var testDllModule = Process.getModuleByName("test_dll.dll");
+    findInternalFunctionsByScan(testDllModule)
     
     // Hook PublicFunction1 - 在onEnterHandler中执行printTestData
-    hookExportedFunction(testDllModule, "PublicFunction1", function(args) {
-        console.log("\n[*] PublicFunction1 called:");
-        printTestData(args[0], "PublicFunction1");
-    },function(args) {});
+    // hookExportedFunction(testDllModule, "PublicFunction1", function(args) {
+    //     console.log("\n[*] PublicFunction1 called:");
+    //     printTestData(args[0], "PublicFunction1");
+    // },function(args) {});
     
-    // Hook PublicFunction2 - 在onEnterHandler中执行printTestData并添加自定义处理
-    hookExportedFunction(testDllModule, "PublicFunction2", function(args) {
-        console.log("\n[*] PublicFunction2 called with CUSTOM handler:");
-        printTestData(args[0], "PublicFunction2");
-    },function(args) {});
+    // // Hook PublicFunction2 - 在onEnterHandler中执行printTestData并添加自定义处理
+    // hookExportedFunction(testDllModule, "PublicFunction2", function(args) {
+    //     console.log("\n[*] PublicFunction2 called with CUSTOM handler:");
+    //     printTestData(args[0], "PublicFunction2");
+    // },function(args) {});
     
-    // Hook PublicFunction3 - 在onEnterHandler中执行printTestData并添加特殊处理
-    hookExportedFunction(testDllModule, "PublicFunction3", function(args) {
-        console.log("\n[*] PublicFunction3 called with INLINE custom handler:");
-        printTestData(args[0], "PublicFunction3");
-    },function(args) {});
+    // // Hook PublicFunction3 - 在onEnterHandler中执行printTestData并添加特殊处理
+    // hookExportedFunction(testDllModule, "PublicFunction3", function(args) {
+    //     console.log("\n[*] PublicFunction3 called with INLINE custom handler:");
+    //     printTestData(args[0], "PublicFunction3");
+    // },function(args) {});
     
 } catch (e) {
     console.log("[-] test_dll module not found or error: " + e.message);
@@ -80,33 +82,33 @@ try {
 
 // Hook test_dll 内部函数（不对外暴露）
 try {
-    var testDllModule = Process.getModuleByName("test_dll.dll");
+    // var testDllModule = Process.getModuleByName("test_dll.dll");
     
-    // 查找所有内部函数
-    var internalFunctions = findInternalFunctions(testDllModule);
+    // // 查找所有内部函数
+    // var internalFunctions = findInternalFunctions(testDllModule);
     
-    // Hook InternalFunction1 - 在onEnterHandler中执行printTestData
-    hookInternalFunction(internalFunctions.InternalFunction1, "InternalFunction1", function(args) {
-        console.log("\n[*] InternalFunction1 called (INTERNAL):");
-        printTestData(args[0], "InternalFunction1");
-    },function(args) {});
+    // // Hook InternalFunction1 - 在onEnterHandler中执行printTestData
+    // hookInternalFunction(internalFunctions.InternalFunction1, "InternalFunction1", function(args) {
+    //     console.log("\n[*] InternalFunction1 called (INTERNAL):");
+    //     printTestData(args[0], "InternalFunction1");
+    // },function(args) {});
     
-    // Hook InternalFunction2 - 在onEnterHandler中执行printTestData并添加自定义处理
-    hookInternalFunction(internalFunctions.InternalFunction2, "InternalFunction2", function(args) {
-        console.log("\n[*] InternalFunction2 called (INTERNAL) with CUSTOM handler:");
-        printTestData(args[0], "InternalFunction2");
-    },function(args) {});
+    // // Hook InternalFunction2 - 在onEnterHandler中执行printTestData并添加自定义处理
+    // hookInternalFunction(internalFunctions.InternalFunction2, "InternalFunction2", function(args) {
+    //     console.log("\n[*] InternalFunction2 called (INTERNAL) with CUSTOM handler:");
+    //     printTestData(args[0], "InternalFunction2");
+    // },function(args) {});
     
-    // Hook InternalFunction3 - 在onEnterHandler中执行printTestData并添加特殊处理
-    hookInternalFunction(internalFunctions.InternalFunction3, "InternalFunction3", function(args) {
-        console.log("\n[*] InternalFunction3 called (INTERNAL) with INLINE handler:");
-        printTestData(args[0], "InternalFunction3");
-    },function(args) {});
+    // // Hook InternalFunction3 - 在onEnterHandler中执行printTestData并添加特殊处理
+    // hookInternalFunction(internalFunctions.InternalFunction3, "InternalFunction3", function(args) {
+    //     console.log("\n[*] InternalFunction3 called (INTERNAL) with INLINE handler:");
+    //     printTestData(args[0], "InternalFunction3");
+    // },function(args) {});
     
-    if (Object.keys(internalFunctions).length === 0) {
-        console.log("[-] No internal functions found. They may be inlined or optimized out.");
-        console.log("[*] Try building the DLL with debug information and no optimization.");
-    }
+    // if (Object.keys(internalFunctions).length === 0) {
+    //     console.log("[-] No internal functions found. They may be inlined or optimized out.");
+    //     console.log("[*] Try building the DLL with debug information and no optimization.");
+    // }
     
 } catch (e) {
     console.log("[-] Error hooking internal functions: " + e.message);

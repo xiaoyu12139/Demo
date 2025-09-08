@@ -3,6 +3,16 @@
 #include <windows.h>
 #include "../dll/test_dll.h"
 
+struct ai {
+    int a;
+    int b;
+    int c;
+    int d;
+    int (*old)();
+    char *cmd_name;
+    
+}
+
 // 测试函数，用于赋值给funcPtr
 void TestFunction() {
     std::cout << "TestFunction called!" << std::endl;
