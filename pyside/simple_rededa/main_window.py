@@ -14,7 +14,7 @@ import sys
 from typing import Optional
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QStackedWidget
+    QStackedWidget, QSplitter, QScrollArea
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
@@ -60,8 +60,8 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
-        # 创建主布局
-        main_layout = QHBoxLayout()
+        # 创建可拖动分割器
+        splitter = QSplitter(Qt.Horizontal)
         
         # 左侧画布区域（使用QStackedWidget）
         self.canvas_stack = QStackedWidget()
@@ -83,7 +83,8 @@ class MainWindow(QMainWindow):
         
         # 右侧操作区域（使用QStackedWidget）
         self.operation_stack = QStackedWidget()
-        self.operation_stack.setFixedWidth(300)
+        # 移除固定宽度，让控件可以自适应
+        self.operation_stack.setMinimumWidth(250)  # 设置最小宽度
         
         # 创建不同的操作页面
         self.operation1 = GetWidgetDataOperationWidget()
@@ -99,6 +100,35 @@ class MainWindow(QMainWindow):
         
         # 设置默认显示第一个操作区域
         self.operation_stack.setCurrentIndex(0)
+        
+        # 为操作区域添加滚动视图
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidget(self.operation_stack)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll_area.setMinimumWidth(250)
+        
+        # 设置滚动区域样式
+        self.scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+            QScrollBar:vertical {
+                background-color: #f0f0f0;
+                width: 12px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #c0c0c0;
+                border-radius: 6px;
+                min-height: 20px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #a0a0a0;
+            }
+        """)
         
         # 设置操作区域样式
         self.operation_stack.setStyleSheet("""
@@ -116,9 +146,28 @@ class MainWindow(QMainWindow):
             }
         """)
         
-        # 添加到主布局
-        main_layout.addWidget(self.canvas_stack, 1)  # 画布区域占据剩余空间
-        main_layout.addWidget(self.operation_stack)
+        # 添加到分割器
+        splitter.addWidget(self.canvas_stack)
+        splitter.addWidget(self.scroll_area)
+        
+        # 设置初始分割比例 (70% : 30%)
+        splitter.setSizes([700, 300])
+        
+        # 设置分割器样式
+        splitter.setStyleSheet("""
+            QSplitter::handle {
+                background-color: #d0d0d0;
+                width: 3px;
+            }
+            QSplitter::handle:hover {
+                background-color: #a0a0a0;
+            }
+        """)
+        
+        # 创建主布局并添加分割器
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addWidget(splitter)
         
         central_widget.setLayout(main_layout)
     

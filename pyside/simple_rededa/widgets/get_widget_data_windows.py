@@ -13,7 +13,7 @@ from typing import Optional
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QFormLayout,
     QLabel, QGroupBox, QRadioButton, QButtonGroup,
-    QSlider, QPushButton
+    QSlider, QPushButton, QSizePolicy
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPainter, QPen, QColor, QPaintEvent
@@ -59,10 +59,14 @@ class GetWidgetDataOperationWidget(QWidget):
         创建并布局绘图工具相关的控件。
         """
         layout = QVBoxLayout()
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(10)
         
         # 颜色选择组
         color_group = QGroupBox("颜色选择")
+        color_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         color_layout = QVBoxLayout()
+        color_layout.setContentsMargins(10, 10, 10, 10)
         
         self.color_buttons = QButtonGroup()
         colors = [("红色", "red"), ("蓝色", "blue"), ("绿色", "green"), ("黑色", "black")]
@@ -81,13 +85,17 @@ class GetWidgetDataOperationWidget(QWidget):
         
         # 画笔设置组
         brush_group = QGroupBox("画笔设置")
+        brush_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         brush_layout = QFormLayout()
+        brush_layout.setContentsMargins(10, 10, 10, 10)
         
         self.brush_size_slider = QSlider(Qt.Horizontal)
         self.brush_size_slider.setRange(1, 20)
         self.brush_size_slider.setValue(2)
+        self.brush_size_slider.setMinimumWidth(100)
         
         self.size_label = QLabel("2")
+        self.size_label.setMinimumWidth(30)
         self.brush_size_slider.valueChanged.connect(lambda v: self.size_label.setText(str(v)))
         
         brush_layout.addRow("画笔大小:", self.brush_size_slider)
@@ -98,7 +106,9 @@ class GetWidgetDataOperationWidget(QWidget):
         
         # 图形工具组
         shape_group = QGroupBox("绘图工具")
+        shape_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         shape_layout = QVBoxLayout()
+        shape_layout.setContentsMargins(10, 10, 10, 10)
         
         self.shape_buttons = QButtonGroup()
         shapes = ["自由绘制", "直线", "矩形", "圆形"]
@@ -116,10 +126,42 @@ class GetWidgetDataOperationWidget(QWidget):
         
         # 操作按钮
         self.clear_canvas_btn = QPushButton("清空画布")
+        self.clear_canvas_btn.setMinimumHeight(30)
         self.save_btn = QPushButton("保存图片")
+        self.save_btn.setMinimumHeight(30)
         
         layout.addWidget(self.clear_canvas_btn)
         layout.addWidget(self.save_btn)
         layout.addStretch()
         
+        # 设置整体布局属性
         self.setLayout(layout)
+        self.setMinimumWidth(200)
+        
+        # 设置样式以支持自适应宽度
+        self.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                border: 2px solid gray;
+                border-radius: 5px;
+                margin: 5px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+            }
+            QPushButton {
+                padding: 5px;
+                border: 1px solid #ccc;
+                border-radius: 3px;
+                background-color: #f0f0f0;
+            }
+            QPushButton:hover {
+                background-color: #e0e0e0;
+            }
+            QPushButton:pressed {
+                background-color: #d0d0d0;
+            }
+        """)
